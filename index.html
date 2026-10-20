@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Gussie Garcia's AI Stock Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: header + tab bar; five views (My plan, Explore, Look up, News, Basics). Big readable type; works on phone. */
+:root{
+  --bg:#f6f2ea; --surface:#fffdf9; --sunk:#efe9df; --fg:#1d2433; --muted:#5d6472; --line:#ddd5c8;
+  --accent:#1f6f54; --accent-fg:#fff; --up:#1f7a4d; --down:#b4382c; --warn:#a86a12; --chip:#e7e0d4;
+  --serif:"DM Serif Display",Georgia,serif; --body:"Atkinson Hyperlegible",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#14171d; --surface:#1c2028; --sunk:#232833; --fg:#ece8e1; --muted:#a3a9b5; --line:#323846;
+  --accent:#4fb08a; --accent-fg:#0d1512; --up:#5cc08c; --down:#ef7b6e; --warn:#e2a64a; --chip:#2a303c;}}
+:root[data-theme="dark"]{--bg:#14171d; --surface:#1c2028; --sunk:#232833; --fg:#ece8e1; --muted:#a3a9b5; --line:#323846;
+  --accent:#4fb08a; --accent-fg:#0d1512; --up:#5cc08c; --down:#ef7b6e; --warn:#e2a64a; --chip:#2a303c;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:400 17px/1.5 var(--body)}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px 48px}
+header{padding:22px 0 8px;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px}
+h1{font:400 34px/1.1 var(--serif);margin:0}
+.upd{color:var(--muted);font-size:14px}
+nav{position:sticky;top:0;z-index:5;background:var(--bg);padding:8px 0;display:flex;gap:6px;overflow-x:auto;border-bottom:1px solid var(--line);margin-bottom:18px}
+nav button{font:700 15px var(--body);padding:9px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer;white-space:nowrap}
+nav button[aria-selected="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+h2{font:400 26px/1.2 var(--serif);margin:0 0 6px}
+h3{font:700 17px var(--body);margin:0 0 6px}
+.lead{color:var(--muted);margin:0 0 16px;max-width:760px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;min-width:0}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:16px;align-items:start}
+@media (max-width:900px){.grid2{grid-template-columns:1fr}}
+.stack{display:grid;gap:16px}
+label.f{display:grid;gap:4px;font-weight:700;font-size:15px}
+label.f small{font-weight:400;color:var(--muted)}
+input[type=number],select{font:500 18px var(--mono);padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--sunk);color:var(--fg);width:100%;min-width:0}
+.money{position:relative}.money::before{content:"$";position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font:500 18px var(--mono)}
+.money input{padding-left:28px}
+.inputs{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:480px){.inputs{grid-template-columns:1fr}}
+.big{font:400 36px/1 var(--serif)}
+.m{font-family:var(--mono)}
+.callout{border-left:4px solid var(--warn);background:var(--sunk);padding:12px 14px;border-radius:0 10px 10px 0;font-size:15px}
+.callout.ok{border-color:var(--up)}
+.mixes{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.mix{text-align:left;font:inherit;color:inherit;background:var(--sunk);border:2px solid transparent;border-radius:12px;padding:12px;cursor:pointer;display:grid;gap:4px}
+.mix b{font-size:16px}.mix span{font-size:14px;color:var(--muted)}
+.mix[aria-pressed="true"]{border-color:var(--accent);background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th{text-align:left;font-size:13px;color:var(--muted);font-weight:700;padding:6px 6px;border-bottom:1px solid var(--line)}
+td{padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+td.n,th.n{text-align:right;font-family:var(--mono);white-space:nowrap}
+.tk{font:700 15px var(--mono)}
+.sub{font-size:13px;color:var(--muted)}
+.pct{width:74px;font-size:15px;padding:6px 8px;text-align:right}
+.x{background:none;border:0;color:var(--muted);font-size:18px;cursor:pointer;padding:2px 6px}
+.btn{font:700 15px var(--body);padding:9px 14px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-fg);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--fg);border-color:var(--line)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.total-ok{color:var(--up)}.total-bad{color:var(--down)}
+.up{color:var(--up)}.down{color:var(--down)}
+.risk{display:inline-flex;gap:2px;vertical-align:middle}.risk i{width:8px;height:8px;border-radius:50%;background:var(--chip)}
+.risk i.on{background:var(--warn)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.chip{font:700 14px var(--body);padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.chip.spec{border-style:dashed}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:8px;min-width:0}
+.ctop{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.cname{font-size:13px;color:var(--muted)}
+.about{font-size:14px;margin:0}
+.kv{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.kv div{background:var(--sunk);border-radius:8px;padding:6px 8px;min-width:0}
+.kv span{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.kv b{font:500 14px var(--mono)}
+svg.spark{width:100%;height:46px;display:block}
+.newslist{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.newslist li{padding:10px 0;border-bottom:1px solid var(--line)}
+.newslist a{color:var(--fg);text-decoration:none;font-weight:700}
+.newslist a:hover{text-decoration:underline}
+.tag{display:inline-block;font:700 12px var(--mono);background:var(--chip);border-radius:6px;padding:1px 6px;margin-right:6px}
+.proj svg{width:100%;height:220px;display:block}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.basics{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.basics p{margin:0 0 8px}
+footer{margin-top:28px;font-size:13px;color:var(--muted);max-width:820px}
+.hide{display:none!important}
+.empty{color:var(--muted)}
+.detail-head{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline}
+.bigchart{width:100%;height:240px;display:block}
+.scroll{overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>Gussie Garcia's AI Stock Tracker</h1><span class="upd" id="upd">Loading market data…</span></header>
+  <nav role="tablist">
+    <button role="tab" data-v="plan" aria-selected="true">My plan</button>
+    <button role="tab" data-v="explore" aria-selected="false">Explore stocks</button>
+    <button role="tab" data-v="lookup" aria-selected="false">Look up a stock</button>
+    <button role="tab" data-v="news" aria-selected="false">News</button>
+    <button role="tab" data-v="basics" aria-selected="false">The basics</button>
+  </nav>
+
+  <!-- ================= MY PLAN ================= -->
+  <section id="v-plan">
+    <h2>My plan</h2>
+    <p class="lead">Enter what you have, pick a mix, and see how much goes into each stock and what it could grow to. Your numbers stay on this device only.</p>
+    <div class="grid2">
+      <div class="stack">
+        <div class="panel stack">
+          <h3>What you have</h3>
+          <div class="inputs">
+            <label class="f">Tesla shares (value)<div class="money"><input type="number" id="iTsla" min="0" step="100" value="22000"></div></label>
+            <label class="f">Roth IRA<div class="money"><input type="number" id="iRoth" min="0" step="100" value="10000"></div></label>
+            <label class="f">Other money to invest<div class="money"><input type="number" id="iCash" min="0" step="100" value="0"></div></label>
+            <label class="f">Adding each month <small>optional</small><div class="money"><input type="number" id="iMonthly" min="0" step="25" value="0"></div></label>
+          </div>
+          <div><span class="sub">Total</span><div class="big m" id="oTotal">$0</div></div>
+          <div class="callout" id="oConc"></div>
+        </div>
+        <div class="panel stack">
+          <h3>Pick a mix</h3>
+          <div class="mixes" id="mixes"></div>
+          <p class="sub" style="margin:0">These are common ways to split money between steady index funds and higher-growth stocks, not personal advice. Change any percentage in the table.</p>
+        </div>
+      </div>
+      <div class="stack">
+        <div class="panel">
+          <div class="row" style="justify-content:space-between"><h3>Where the money goes</h3><span class="m" id="oSum"></span></div>
+          <div class="scroll"><table>
+            <thead><tr><th>Stock / fund</th><th class="n">%</th><th class="n">Amount</th><th class="n">≈ Shares</th><th class="n">Past 10 yrs / yr</th><th></th></tr></thead>
+            <tbody id="allocBody"></tbody>
+          </table></div>
+          <div class="row" style="margin-top:12px">
+            <select id="addSel" style="max-width:280px"></select><button class="btn ghost" id="addBtn">Add to plan</button>
+            <button class="btn ghost" id="evenBtn">Split evenly</button>
+          </div>
+          <p class="callout hide" id="oTax" style="margin:12px 0 0"></p>
+        </div>
+        <div class="panel proj">
+          <h3>What it could grow to</h3>
+          <div class="scroll"><table>
+            <thead><tr><th>After</th><th class="n">Cautious</th><th class="n">Middle</th><th class="n">Strong</th></tr></thead>
+            <tbody id="projBody"></tbody>
+          </table></div>
+          <svg id="projChart" viewBox="0 0 600 220" preserveAspectRatio="none" aria-label="Growth chart"></svg>
+          <div class="legend"><span><i style="background:var(--down);opacity:.7"></i>Cautious</span><span><i style="background:var(--accent)"></i>Middle</span><span><i style="background:var(--up);opacity:.5"></i>Strong</span></div>
+          <p class="callout" id="oDrop" style="margin-top:12px"></p>
+          <p class="sub" style="margin:8px 0 0">How the scenarios work: each holding gets a yearly growth rate by type (table in "The basics"). Real returns jump around year to year and are never guaranteed; these show a range, not a promise.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= EXPLORE ================= -->
+  <section id="v-explore" class="hide">
+    <h2>Explore stocks</h2>
+    <p class="lead">The best-known names in each hot area, with live prices. The dots show how wild the ride is (1 = steady, 5 = big swings). Speculative names (unprofitable, tiny or crypto, and down 65–90% at some point) are hidden unless you tap "Show speculative".</p>
+    <div class="chips" id="themeChips"></div>
+    <div class="row" style="margin-bottom:12px"><label class="sub" for="sortSel">Sort by</label>
+      <select id="sortSel" style="max-width:240px"><option value="theme">Group</option><option value="y1">Past year</option><option value="cagr">Past 10 years per year</option><option value="risk">Steadiest first</option><option value="rev">Sales growth</option></select></div>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <!-- ================= LOOK UP ================= -->
+  <section id="v-lookup" class="hide">
+    <h2>Look up a stock</h2>
+    <p class="lead">Pick any stock or fund to see how it has done, how risky it has been, and the latest news.</p>
+    <select id="lookSel" style="max-width:360px;margin-bottom:14px"></select>
+    <div class="panel" id="detail"></div>
+  </section>
+
+  <!-- ================= NEWS ================= -->
+  <section id="v-news" class="hide">
+    <h2>News</h2>
+    <p class="lead">Latest headlines about the stocks on this list, newest first. Tap a headline to read it.</p>
+    <div class="chips" id="newsChips"></div>
+    <div class="panel"><ul class="newslist" id="newsList"></ul></div>
+  </section>
+
+  <!-- ================= BASICS ================= -->
+  <section id="v-basics" class="hide">
+    <h2>The basics</h2>
+    <p class="lead">Plain-English rules most long-term investors follow.</p>
+    <div class="basics">
+      <div class="panel"><h3>1. Start with a core index fund</h3><p>An S&amp;P 500 fund like <b>VOO</b> owns 500 companies at once, including Nvidia, Microsoft and Tesla. If one company stumbles, the others carry it. Over the past 10 years VOO grew about <b class="m" id="bVoo">–</b> a year.</p><p>Many people keep half or more of their money in a core fund and use the rest for individual growth stocks.</p></div>
+      <div class="panel"><h3>2. Don't let one stock be most of your money</h3><p>A common guideline is to keep any single stock under about <b>5–10%</b> of your total. Tesla made you a great gain, but if it fell 65% like it did in 2022, that would hit most of your savings at once.</p><p>Ways people reduce it: put new money and the Roth IRA into other investments, or sell Tesla a little at a time.</p></div>
+      <div class="panel"><h3>3. Roth IRA vs. a regular account</h3><p><b>Roth IRA:</b> buy and sell inside it with <b>no tax</b>, and money taken out after age 59½ (account open 5+ years) is tax-free. It's a great place for the highest-growth holdings. 2026 limit: <b>$7,500</b> a year, or <b>$8,600</b> at age 50+.</p><p><b>Regular account (where Tesla likely is):</b> selling at a profit means capital gains tax on the gain. Held over a year, the federal rate is 0%, 15% or 20% depending on income. Ask a tax professional before selling a big gain.</p></div>
+      <div class="panel"><h3>4. How long to hold</h3><p><b>Index funds:</b> 10+ years; ignore the dips.<br><b>Big established companies</b> (risk 2–3): 5+ years.<br><b>High-growth stocks</b> (risk 4–5): only money you won't need for 10 years and could watch drop 50–80% without selling.<br><b>Crypto:</b> keep it small; it has fallen 50–80% several times.</p></div>
+      <div class="panel"><h3>5. Once a year, rebalance</h3><p>Pick a date (like your birthday). If one holding grew far past its target %, sell a little and add to the ones that fell behind. This locks in gains and keeps risk in check, without watching the market every day.</p></div>
+      <div class="panel"><h3>6. How the growth scenarios are set</h3><div class="scroll"><table><thead><tr><th>Type</th><th class="n">Cautious</th><th class="n">Middle</th><th class="n">Strong</th></tr></thead><tbody id="rateBody"></tbody></table></div><p class="sub" style="margin-top:8px">Middle is a bit below the past 10 years for most holdings, because the last decade was unusually strong for tech. Cautious includes long flat or losing stretches.</p></div>
+      <div class="panel"><h3>7. Get a second opinion</h3><p>This planner shows information and math, not personal advice. Before moving a large amount, consider a <b>fee-only fiduciary</b> financial advisor (paid by you, not by commissions, and legally required to act in your interest).</p></div>
+    </div>
+  </section>
+
+  <footer>Prices from TradingView (delayed up to 15 minutes), history and headlines from Yahoo Finance. Updated automatically every 30 minutes on market days. Past results don't guarantee future returns. This is an information tool, not financial advice.</footer>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const usd = (n, d = 0) => (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+  const pct = (n, d = 0) => n == null ? "–" : (n > 0 ? "+" : "") + n.toFixed(d) + "%";
+  const cls = n => n == null ? "" : n >= 0 ? "up" : "down";
+  const store = { get(k, d) { try { const v = localStorage.getItem("msp_" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+                  set(k, v) { try { localStorage.setItem("msp_" + k, JSON.stringify(v)); } catch (e) {} } };
+  let data = null, by = {};
+
+  // ---------- growth scenarios by type (yearly %) ----------
+  const RATES = [
+    { key: "index", label: "S&P 500 / total market funds (VOO, VTI)", r: [5, 8, 10] },
+    { key: "growthfund", label: "Growth & tech funds (QQQ, VUG, VGT, sector funds)", r: [4, 9, 12] },
+    { key: "r2", label: "Steady big companies (risk 2)", r: [3, 8, 11] },
+    { key: "r3", label: "Big established growth companies (risk 3)", r: [3, 9, 13] },
+    { key: "r4", label: "High-growth companies (risk 4)", r: [0, 10, 16] },
+    { key: "r5", label: "Speculative: young companies, crypto (risk 5)", r: [-5, 10, 20] },
+  ];
+  const rateFor = s => {
+    if (!s) return RATES[3].r;
+    if (s.t === "VOO" || s.t === "VTI") return RATES[0].r;
+    if (s.kind === "fund" && s.risk <= 4 && s.theme === "Index funds") return RATES[1].r;
+    if (s.kind === "fund" && s.risk <= 4) return RATES[1].r;
+    return RATES[{ 2: 2, 3: 3, 4: 4, 5: 5 }[s.risk] || 3].r;
+  };
+
+  // ---------- mixes (percent of total money) ----------
+  const MIXES = [
+    { id: "now", name: "What I have now", note: "Tesla + Roth as today (Roth shown as an S&P 500 fund)", w: null },
+    { id: "steady", name: "Index-first (steadier)", note: "70% index funds, 30% top growth names", w: { VOO: 50, QQQ: 20, TSLA: 10, NVDA: 5, MSFT: 5, GOOGL: 5, LLY: 5 } },
+    { id: "core", name: "Core + growth", note: "50% index funds, 50% across AI, data centers, space, defense, health, crypto",
+      w: { VOO: 35, QQQ: 15, TSLA: 10, NVDA: 8, AVGO: 5, GOOGL: 5, MSFT: 4, VRT: 4, LLY: 4, ITA: 4, SPCX: 3, IBIT: 3 } },
+    { id: "growth", name: "Growth-heavy (bigger swings)", note: "30% index funds, 70% high-growth themes",
+      w: { VOO: 20, QQQ: 10, TSLA: 12, NVDA: 10, AVGO: 6, TSM: 5, VRT: 5, CEG: 5, PLTR: 4, SPCX: 5, GOOGL: 3, LLY: 5, ITA: 5, IBIT: 5 } },
+  ];
+  let plan = store.get("plan", null), mixId = store.get("mix", "core");
+
+  const inputs = ["iTsla", "iRoth", "iCash", "iMonthly"];
+  inputs.forEach(id => { const v = store.get(id, null); if (v != null) $(id).value = v; $(id).addEventListener("input", () => { store.set(id, $(id).value); renderPlan(); }); });
+  const num = id => Math.max(0, +$(id).value || 0);
+  const total = () => num("iTsla") + num("iRoth") + num("iCash");
+
+  function applyMix(id) {
+    mixId = id; store.set("mix", id);
+    const m = MIXES.find(x => x.id === id);
+    if (!m.w) { const t = total() || 1; const ts = Math.round(num("iTsla") / t * 1000) / 10; plan = { TSLA: ts, VOO: Math.round((100 - ts) * 10) / 10 }; }
+    else plan = { ...m.w };
+    store.set("plan", plan); renderPlan();
+  }
+
+  function renderMixes() {
+    $("mixes").innerHTML = MIXES.map(m => `<button class="mix" data-id="${m.id}" aria-pressed="${m.id === mixId}"><b>${esc(m.name)}</b><span>${esc(m.note)}</span></button>`).join("");
+  }
+  $("mixes").addEventListener("click", e => { const b = e.target.closest(".mix"); if (b) { applyMix(b.dataset.id); renderMixes(); } });
+
+  function riskDots(r) { return `<span class="risk" title="Risk ${r} of 5">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= r ? "on" : ""}"></i>`).join("")}</span>`; }
+
+  function renderPlan() {
+    if (!data) return;
+    if (!plan) applyMix(mixId);
+    const T = total(), mo = num("iMonthly");
+    $("oTotal").textContent = usd(T);
+    const tp = T ? num("iTsla") / T * 100 : 0;
+    $("oConc").className = "callout" + (tp <= 20 ? " ok" : "");
+    $("oConc").innerHTML = tp > 20
+      ? `Tesla is <b>${tp.toFixed(0)}%</b> of your money. Most diversified plans keep one stock under 5–10%. If Tesla dropped 50%, you'd lose about <b>${usd(num("iTsla") * 0.5)}</b>.`
+      : `Tesla is ${tp.toFixed(0)}% of your money.`;
+    const rows = Object.entries(plan).filter(([t]) => by[t]);
+    const sum = rows.reduce((a, [, w]) => a + (+w || 0), 0);
+    $("oSum").innerHTML = `<span class="${Math.abs(sum - 100) < 0.05 ? "total-ok" : "total-bad"}">Total ${sum.toFixed(1)}%</span>`;
+    $("allocBody").innerHTML = rows.map(([t, w]) => { const s = by[t], amt = T * (+w || 0) / 100;
+      return `<tr><td><span class="tk">${esc(t)}</span> ${riskDots(s.risk)}<div class="sub">${esc(s.name)}</div></td>
+        <td class="n"><input class="pct" type="number" min="0" max="100" step="0.5" value="${+w}" data-t="${esc(t)}" aria-label="${esc(t)} percent"></td>
+        <td class="n">${usd(amt)}</td><td class="n">${s.price ? (amt / s.price).toFixed(amt / s.price < 10 ? 2 : 1) : "–"}</td>
+        <td class="n ${cls(s.hist?.cagr)}">${s.hist?.cagr != null ? pct(s.hist.cagr, 1) + (s.hist.years < 9.5 ? `<div class="sub">${s.hist.years} yrs</div>` : "") : "<span class='sub'>new</span>"}</td>
+        <td><button class="x" data-del="${esc(t)}" aria-label="Remove ${esc(t)}">✕</button></td></tr>`; }).join("");
+    const tslaKeep = T * (+(plan.TSLA || 0)) / (sum || 1), sell = num("iTsla") - tslaKeep;
+    $("oTax").classList.toggle("hide", sell < 100);
+    if (sell >= 100) $("oTax").innerHTML = `This mix means selling about <b>${usd(sell)}</b> of Tesla. If Tesla is in a regular (non-retirement) account, the profit on what you sell is taxed as a capital gain. Some people sell a little each year, or leave Tesla as is and invest only the Roth and new money differently. Check with a tax pro first.`;
+    // projections
+    const years = [1, 3, 5, 7, 10];
+    const proj = y => [0, 1, 2].map(k => rows.reduce((a, [t, w]) => {
+      const r = rateFor(by[t])[k] / 100, share = (+w || 0) / (sum || 1);
+      const lump = T * share * Math.pow(1 + r, y);
+      const rm = Math.pow(1 + r, 1 / 12) - 1, n = y * 12;
+      const monthly = mo * share * (rm === 0 ? n : (Math.pow(1 + rm, n) - 1) / rm);
+      return a + lump + monthly; }, 0));
+    const put = y => T + mo * 12 * y;
+    $("projBody").innerHTML = years.map(y => { const p = proj(y);
+      return `<tr><td><b>${y} year${y > 1 ? "s" : ""}</b><div class="sub">you put in ${usd(put(y))}</div></td>${p.map(v => `<td class="n">${usd(v)}<div class="sub ${cls(v - put(y))}">${pct((v / put(y) - 1) * 100)}</div></td>`).join("")}</tr>`; }).join("");
+    drawProj(proj);
+    const drop = rows.reduce((a, [t, w]) => a + T * (+w || 0) / (sum || 1) * Math.abs(by[t].hist?.max_drop ?? 50) / 100, 0);
+    $("oDrop").innerHTML = `Bad-year check: if every holding fell as much as its worst drop of the past 10 years, this mix would be down about <b>${usd(drop)}</b> (${T ? (drop / T * 100).toFixed(0) : 0}%) at the bottom. Holding through those drops is what earns the long-term growth.`;
+  }
+  function drawProj(proj) {
+    const W = 600, H = 220, P = 34, ys = Array.from({ length: 11 }, (_, i) => i), pts = ys.map(y => proj(y));
+    const max = Math.max(...pts.map(p => p[2]), 1), min = 0;
+    const X = y => P + (W - P - 8) * y / 10, Y = v => H - 22 - (H - 34) * (v - min) / (max - min);
+    const line = k => ys.map((y, i) => `${i ? "L" : "M"}${X(y).toFixed(1)},${Y(pts[i][k]).toFixed(1)}`).join("");
+    const area = `M${X(0)},${Y(pts[0][0])}` + ys.map((y, i) => `L${X(y)},${Y(pts[i][2])}`).join("") + ys.slice().reverse().map(y => `L${X(y)},${Y(pts[y][0])}`).join("") + "Z";
+    const grid = [0.25, 0.5, 0.75, 1].map(f => { const v = max * f; return `<line x1="${P}" x2="${W - 8}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="2" y="${Y(v) + 4}" font-size="11" fill="var(--muted)" font-family="var(--mono)">${v >= 1e6 ? "$" + (v / 1e6).toFixed(1) + "M" : "$" + Math.round(v / 1000) + "k"}</text>`; }).join("");
+    const xl = [0, 1, 3, 5, 7, 10].map(y => `<text x="${X(y)}" y="${H - 4}" font-size="11" fill="var(--muted)" text-anchor="middle">${y ? y + "y" : "now"}</text>`).join("");
+    $("projChart").innerHTML = grid + xl + `<path d="${area}" fill="var(--accent)" opacity=".10"/>` +
+      `<path d="${line(0)}" fill="none" stroke="var(--down)" stroke-width="2" opacity=".7"/><path d="${line(2)}" fill="none" stroke="var(--up)" stroke-width="2" opacity=".55"/><path d="${line(1)}" fill="none" stroke="var(--accent)" stroke-width="3"/>`;
+  }
+  $("allocBody").addEventListener("input", e => { const i = e.target.closest("input.pct"); if (!i) return; plan[i.dataset.t] = Math.max(0, +i.value || 0); store.set("plan", plan); renderPlanSoft(); });
+  // re-render without rebuilding the inputs being typed in
+  function renderPlanSoft() { const a = document.activeElement, t = a?.dataset?.t, pos = a?.selectionStart; renderPlan(); if (t) { const n = document.querySelector(`input.pct[data-t="${t}"]`); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) {} } } }
+  $("allocBody").addEventListener("click", e => { const b = e.target.closest("[data-del]"); if (!b) return; delete plan[b.dataset.del]; store.set("plan", plan); renderPlan(); });
+  $("addBtn").addEventListener("click", () => { const t = $("addSel").value; if (!t) return; if (plan[t] == null) plan[t] = 5; store.set("plan", plan); renderPlan(); });
+  $("evenBtn").addEventListener("click", () => { const ks = Object.keys(plan).filter(t => by[t]); const e = Math.floor(1000 / ks.length) / 10; ks.forEach((t, i) => plan[t] = i === 0 ? Math.round((100 - e * (ks.length - 1)) * 10) / 10 : e); store.set("plan", plan); renderPlan(); });
+
+  // ---------- sparkline ----------
+  function spark(v, h = 46, cl = "spark") {
+    if (!v || v.length < 2) return `<svg class="${cl}" viewBox="0 0 100 ${h}"><text x="2" y="${h / 2}" font-size="9" fill="var(--muted)">Not enough history yet</text></svg>`;
+    const mx = Math.max(...v), mn = Math.min(...v), X = i => i / (v.length - 1) * 100, Y = x => h - 3 - (h - 6) * (x - mn) / ((mx - mn) || 1);
+    const up = v[v.length - 1] >= v[0];
+    return `<svg class="${cl}" viewBox="0 0 100 ${h}" preserveAspectRatio="none"><path d="${v.map((x, i) => `${i ? "L" : "M"}${X(i).toFixed(2)},${Y(x).toFixed(2)}`).join("")}" fill="none" stroke="var(--${up ? "up" : "down"})" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`;
+  }
+
+  // ---------- explore ----------
+  let theme = "All", showSpec = false;
+  function renderExplore() {
+    const themes = ["All", ...new Set(data.stocks.map(s => s.theme))];
+    const nSpec = data.stocks.filter(s => s.spec).length;
+    $("themeChips").innerHTML = themes.map(t => `<button class="chip" data-th="${esc(t)}" aria-pressed="${t === theme}">${esc(t)}</button>`).join("") +
+      `<button class="chip spec" id="specChip" aria-pressed="${showSpec}">${showSpec ? "Hide" : "Show"} speculative (${nSpec})</button>`;
+    let list = data.stocks.filter(s => (theme === "All" || s.theme === theme) && (showSpec || !s.spec));
+    const k = $("sortSel").value;
+    if (k === "y1") list.sort((a, b) => (b.y1 ?? -999) - (a.y1 ?? -999));
+    if (k === "cagr") list.sort((a, b) => (b.hist?.cagr ?? -999) - (a.hist?.cagr ?? -999));
+    if (k === "risk") list.sort((a, b) => a.risk - b.risk);
+    if (k === "rev") list.sort((a, b) => (b.rev_growth ?? -999) - (a.rev_growth ?? -999));
+    $("cards").innerHTML = (list.length ? "" : `<p class="empty">Nothing here with speculative names hidden. Tap "Show speculative" to see them.</p>`) + list.map(s => `<article class="card">
+      <div class="ctop"><span class="tk" style="font-size:18px">${esc(s.t)}</span><span class="m">${usd(s.price, 2)} <span class="${cls(s.day)}" style="font-size:13px">${pct(s.day, 1)}</span></span></div>
+      <div class="ctop"><span class="cname">${esc(s.name)} · ${esc(s.theme)}${s.spec ? ' · <b class="down">Speculative</b>' : ""}</span>${riskDots(s.risk)}</div>
+      <p class="about">${esc(s.about)}</p>
+      ${spark(s.spark)}
+      <div class="kv"><div><span>Past year</span><b class="${cls(s.y1)}">${pct(s.y1)}</b></div><div><span>10 yrs / yr</span><b class="${cls(s.hist?.cagr)}">${s.hist?.cagr != null ? pct(s.hist.cagr, 1) : "new"}</b></div><div><span>Worst drop</span><b class="down">${s.hist?.max_drop != null ? s.hist.max_drop.toFixed(0) + "%" : "–"}</b></div></div>
+      <div class="row"><button class="btn ghost" data-look="${esc(s.t)}">Details</button><button class="btn ghost" data-add="${esc(s.t)}">${plan && plan[s.t] != null ? "In your plan ✓" : "Add to plan"}</button></div>
+    </article>`).join("");
+  }
+  $("themeChips").addEventListener("click", e => { if (e.target.closest("#specChip")) { showSpec = !showSpec; renderExplore(); return; } const b = e.target.closest("[data-th]"); if (b) { theme = b.dataset.th; renderExplore(); } });
+  $("sortSel").addEventListener("change", renderExplore);
+  document.addEventListener("click", e => {
+    const a = e.target.closest("[data-add]"); if (a) { const t = a.dataset.add; if (plan[t] == null) plan[t] = 5; store.set("plan", plan); renderPlan(); renderExplore(); }
+    const l = e.target.closest("[data-look]"); if (l) { $("lookSel").value = l.dataset.look; renderDetail(); show("lookup"); }
+  });
+
+  // ---------- look up ----------
+  const holdText = s => s.t === "VOO" || s.t === "VTI" ? "10+ years. Built to be held through ups and downs."
+    : s.risk <= 3 ? "5+ years. Established company or fund; expect normal dips of 20–40% along the way."
+    : s.risk === 4 ? "7–10 years, with money you won't need. Has dropped 40–70% before."
+    : "10 years, and only a small slice. Can fall 60–90% and may take years to recover, or may not.";
+  function renderDetail() {
+    const s = by[$("lookSel").value]; if (!s) return;
+    const n = data.news.filter(x => x.t === s.t).slice(0, 6);
+    const pe = s.pe == null ? "–" : s.pe.toFixed(0);
+    const peTxt = s.pe == null ? (s.kind === "fund" ? "Funds don't have one." : "Not profitable yet, or new.") : s.pe < 20 ? "Lower than the market average (~25): priced modestly." : s.pe < 40 ? "Around or a bit above the market average." : "High: the price assumes lots of future growth.";
+    $("detail").innerHTML = `<div class="detail-head"><span class="tk" style="font-size:26px">${esc(s.t)}</span><span class="big m">${usd(s.price, 2)}</span><span class="${cls(s.day)} m">${pct(s.day, 2)} today</span>${riskDots(s.risk)}</div>
+      <div class="sub" style="margin:2px 0 10px">${esc(s.name)} · ${esc(s.theme)}${s.spec ? ' · <b class="down">Speculative: unprofitable, tiny or crypto; has fallen 65–90% before</b>' : ""}</div>
+      <p style="margin:0 0 12px">${esc(s.about)}</p>
+      ${spark(s.spark, 90, "bigchart")}
+      <div class="sub" style="margin:2px 0 14px">Price over ${s.hist?.years ?? 0} years (dividends included)</div>
+      <div class="scroll"><table><tbody>
+        <tr><td>Past month / this year / past year</td><td class="n"><span class="${cls(s.month)}">${pct(s.month)}</span> · <span class="${cls(s.ytd)}">${pct(s.ytd)}</span> · <span class="${cls(s.y1)}">${pct(s.y1)}</span></td></tr>
+        <tr><td>Past 5 years (total)</td><td class="n ${cls(s.y5)}">${pct(s.y5)}</td></tr>
+        <tr><td>Average growth per year<div class="sub">over ${s.hist?.years ?? 0} years</div></td><td class="n ${cls(s.hist?.cagr)}">${s.hist?.cagr != null ? pct(s.hist.cagr, 1) : "too new"}</td></tr>
+        <tr><td>Worst drop from a high<div class="sub">how far it fell at its worst</div></td><td class="n down">${s.hist?.max_drop != null ? s.hist.max_drop.toFixed(0) + "%" : "–"}</td></tr>
+        <tr><td>Typical yearly swing<div class="sub">S&amp;P 500 is about 15%</div></td><td class="n">${s.hist?.volatility != null ? s.hist.volatility.toFixed(0) + "%" : "–"}</td></tr>
+        <tr><td>Price vs. profits (P/E)<div class="sub">${peTxt}</div></td><td class="n">${pe}</td></tr>
+        <tr><td>Sales growth, past year</td><td class="n ${cls(s.rev_growth)}">${s.rev_growth != null ? pct(s.rev_growth) : "–"}</td></tr>
+        <tr><td>Company size</td><td class="n">${s.mcap ? (s.mcap >= 1e12 ? "$" + (s.mcap / 1e12).toFixed(2) + " trillion" : "$" + (s.mcap / 1e9).toFixed(0) + " billion") : "–"}</td></tr>
+        <tr><td>Dividend</td><td class="n">${s.div ? s.div.toFixed(2) + "% a year" : "none"}</td></tr>
+        <tr><td>Typical holding time</td><td style="text-align:right">${holdText(s)}</td></tr>
+      </tbody></table></div>
+      <div class="row" style="margin:14px 0"><button class="btn" data-add="${esc(s.t)}">${plan && plan[s.t] != null ? "In your plan ✓" : "Add to my plan"}</button></div>
+      <h3>Latest news</h3>${n.length ? `<ul class="newslist">${n.map(newsItem).join("")}</ul>` : `<p class="empty">No headlines in the past 10 days.</p>`}`;
+  }
+  $("lookSel").addEventListener("change", renderDetail);
+
+  // ---------- news ----------
+  const ago = iso => { const m = (Date.now() - new Date(iso)) / 60000; return m < 60 ? Math.max(1, Math.round(m)) + " min ago" : m < 1440 ? Math.round(m / 60) + " hr ago" : Math.round(m / 1440) + " days ago"; };
+  const newsItem = n => `<li><span class="tag">${esc(n.t)}</span><a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.title)}</a><div class="sub">${ago(n.when)}</div></li>`;
+  let nFilter = "All";
+  function renderNews() {
+    const opts = ["All", "My plan", ...new Set(data.stocks.map(s => s.theme))];
+    $("newsChips").innerHTML = opts.map(t => `<button class="chip" data-nf="${esc(t)}" aria-pressed="${t === nFilter}">${esc(t)}</button>`).join("");
+    const list = data.news.filter(n => nFilter === "All" || (nFilter === "My plan" ? plan && plan[n.t] != null : by[n.t]?.theme === nFilter));
+    const seen = new Set();
+    $("newsList").innerHTML = list.filter(n => !seen.has(n.title) && seen.add(n.title)).slice(0, 60).map(newsItem).join("") || `<li class="empty">No headlines for this filter.</li>`;
+  }
+  $("newsChips").addEventListener("click", e => { const b = e.target.closest("[data-nf]"); if (b) { nFilter = b.dataset.nf; renderNews(); } });
+
+  // ---------- tabs ----------
+  function show(v) {
+    document.querySelectorAll("nav button").forEach(b => b.setAttribute("aria-selected", b.dataset.v === v));
+    document.querySelectorAll("section[id^=v-]").forEach(s => s.classList.toggle("hide", s.id !== "v-" + v));
+    if (v === "explore") renderExplore(); if (v === "news") renderNews(); if (v === "lookup") renderDetail();
+    store.set("tab", v); scrollTo({ top: 0 });
+  }
+  document.querySelector("nav").addEventListener("click", e => { const b = e.target.closest("button[data-v]"); if (b) show(b.dataset.v); });
+
+  // ---------- load ----------
+  let first = true;
+  async function load() {
+    try {
+      const r = await fetch("data.json?t=" + Date.now(), { cache: "no-store" }); if (!r.ok) throw 0;
+      data = await r.json(); by = Object.fromEntries(data.stocks.map(s => [s.t, s]));
+      const d = new Date(data.updated);
+      $("upd").textContent = "Prices updated " + d.toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+      const opts = data.stocks.map(s => `<option value="${esc(s.t)}">${esc(s.t)} · ${esc(s.name)}${s.spec ? " (speculative)" : ""}</option>`).join("");
+      const keep = $("lookSel").value; $("lookSel").innerHTML = opts; $("lookSel").value = keep || "VOO"; $("addSel").innerHTML = opts;
+      $("bVoo").textContent = by.VOO?.hist?.cagr != null ? by.VOO.hist.cagr.toFixed(1) + "%" : "–";
+      $("rateBody").innerHTML = RATES.map(x => `<tr><td>${esc(x.label)}</td>${x.r.map(v => `<td class="n">${v}%</td>`).join("")}</tr>`).join("");
+      renderMixes(); renderPlan();
+      if (first) { first = false; show(store.get("tab", "plan")); }
+    } catch (e) { $("upd").textContent = "Couldn't load market data. Retrying…"; setTimeout(load, 15000); }
+  }
+  load(); setInterval(() => { if (document.visibilityState === "visible") load(); }, 30 * 60 * 1000);
+})();
+</script>
+</body>
+</html>
